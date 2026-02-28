@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Birdcam - Photo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-link">&larr; Back to Gallery</a>
+        <h1>Birdcam</h1>
+    </header>
+
+    <section class="photo-detail">
+        <img src="/captures/{{ photo_id }}.jpg" alt="Bird photo" class="full-photo">
+        <div class="photo-meta">
+            {% if meta.get('species') and meta.get('species') not in ('angle-check', 'Vision error') %}
+            <h2 class="species-title">{{ meta.get('species') }}</h2>
+            {% if meta.get('detail') %}
+            <p class="species-detail">{{ meta.get('detail') }}</p>
+            {% endif %}
+            {% endif %}
+            <p><strong>Captured:</strong> {{ meta.get('timestamp', 0) | datetime }}</p>
+            <p><strong>Motion MSE:</strong> {{ meta.get('mse', 'N/A') }}</p>
+        </div>
+    </section>
+</body>
+</html>

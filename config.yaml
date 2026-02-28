@@ -1,0 +1,30 @@
+camera:
+  main_resolution: [1920, 1080]
+  lores_resolution: [320, 240]
+  framerate: 30
+  jpeg_quality: 85
+  stream_quality: 70
+  scaler_crop: [700, 150, 1300, 731]
+
+motion:
+  enabled: true
+  mse_threshold: 15.0
+  cooldown_seconds: 15
+  warmup_seconds: 10
+  adaptive_multiplier: 8.0
+
+storage:
+  capture_dir: "captures"
+  max_photos: 5000
+  thumbnail_size: [320, 240]
+
+vision:
+  enabled: true
+  model: "claude-sonnet-4-6"
+  max_tokens: 256
+  active_start: "06:45"
+  active_end: "18:30"
+
+web:
+  host: "0.0.0.0"
+  port: 5000

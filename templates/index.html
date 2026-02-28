@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Birdcam</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Birdcam</h1>
+        <div class="status-bar">
+            <span id="mse-display">MSE: --</span>
+            <span id="threshold-display">Thr: --</span>
+            <span id="birds-display">Birds: 0</span>
+            <span id="rejected-display">Rej: 0</span>
+        </div>
+    </header>
+
+    <section class="live-section">
+        <h2>Live Feed</h2>
+        <div class="stream-container">
+            <img src="/stream" alt="Live camera feed" id="live-stream">
+        </div>
+        <div class="controls">
+            <button onclick="manualCapture()" id="capture-btn">Capture Now</button>
+            {% if vision_enabled %}
+            <button onclick="checkAngle()" id="angle-btn">Check Angle</button>
+            {% endif %}
+            <button onclick="toggleSettings()" id="settings-btn">Settings</button>
+        </div>
+        <div id="capture-result" class="angle-result" style="display:none"></div>
+        <div id="angle-result" class="angle-result" style="display:none"></div>
+    </section>
+
+    <section id="settings-panel" class="settings-panel" style="display:none">
+        <h2>Motion Sensitivity</h2>
+        <div class="setting-row">
+            <label>Adaptive Multiplier <span class="setting-hint">Higher = less sensitive</span></label>
+            <input type="range" id="multiplier-slider" min="3" max="20" step="1"
+                   value="{{ multiplier }}" oninput="updateSliderLabel(this, 'mult-val')">
+            <span id="mult-val" class="setting-value">{{ multiplier }}x</span>
+        </div>
+        <div class="setting-row">
+            <label>Cooldown (seconds) <span class="setting-hint">Min time between captures</span></label>
+            <input type="range" id="cooldown-slider" min="5" max="60" step="5"
+                   value="{{ cooldown }}" oninput="updateSliderLabel(this, 'cool-val', 's')">
+            <span id="cool-val" class="setting-value">{{ cooldown }}s</span>
+        </div>
+        <div class="setting-row">
+            <label>Min MSE Threshold <span class="setting-hint">Minimum motion to consider</span></label>
+            <input type="range" id="threshold-slider" min="5" max="100" step="5"
+                   value="{{ mse_threshold }}" oninput="updateSliderLabel(this, 'thr-val')">
+            <span id="thr-val" class="setting-value">{{ mse_threshold }}</span>
+        </div>
+        <button onclick="applySettings()" id="apply-btn">Apply Settings</button>
+        <span id="settings-status" class="settings-status"></span>
+    </section>
+
+    <section class="gallery-section">
+        <h2>Bird Sightings <span class="photo-count">({{ total_photos }})</span></h2>
+        {% if total_photos == 0 %}
+        <p class="empty-state">No birds captured yet. The camera is watching...</p>
+        {% endif %}
+        <div class="photo-grid" id="photo-grid">
+            {% for photo in photos %}
+            <a href="/photo/{{ photo.id }}" class="photo-card">
+                <img src="/captures/{{ photo.thumbnail }}" loading="lazy"
+                     alt="{{ photo.species or 'Bird' }}">
+                <div class="photo-info">
+                    {% if photo.species and photo.species not in ('angle-check', 'Vision error', 'No bird detected') %}
+                    <span class="species-label">{{ photo.species }}</span>
+                    {% endif %}
+                    <span class="timestamp">{{ photo.timestamp | timeago }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% if total_photos > 60 %}
+        <button onclick="loadMore()" id="load-more-btn" class="load-more">Load More</button>
+        {% endif %}
+    </section>
+
+    <script>
+        let offset = 60;
+        const limit = 60;
+        let lastPhotoCount = {{ total_photos }};
+
+        setInterval(async () => {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                document.getElementById('mse-display').textContent = 'MSE: ' + data.last_mse.toFixed(0);
+                document.getElementById('threshold-display').textContent = 'Thr: ' + data.threshold.toFixed(0);
+                document.getElementById('birds-display').textContent = 'Birds: ' + data.birds_count;
+                document.getElementById('rejected-display').textContent = 'Rej: ' + data.rejected_count;
+                if (data.total_photos > lastPhotoCount) {
+                    lastPhotoCount = data.total_photos;
+                    refreshGallery();
+                }
+            } catch(e) {}
+        }, 3000);
+
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function updateSliderLabel(slider, labelId, suffix) {
+            const label = document.getElementById(labelId);
+            label.textContent = slider.value + (suffix || (labelId === 'mult-val' ? 'x' : ''));
+        }
+
+        async function applySettings() {
+            const btn = document.getElementById('apply-btn');
+            const status = document.getElementById('settings-status');
+            btn.disabled = true;
+            try {
+                const resp = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        multiplier: parseFloat(document.getElementById('multiplier-slider').value),
+                        cooldown: parseFloat(document.getElementById('cooldown-slider').value),
+                        mse_threshold: parseFloat(document.getElementById('threshold-slider').value),
+                    })
+                });
+                const data = await resp.json();
+                status.textContent = 'Applied!';
+                status.style.color = '#4caf50';
+                setTimeout(() => { status.textContent = ''; }, 3000);
+            } catch(e) {
+                status.textContent = 'Failed';
+                status.style.color = '#e94560';
+            }
+            btn.disabled = false;
+        }
+
+        async function refreshGallery() {
+            try {
+                const resp = await fetch('/api/photos?limit=60&offset=0');
+                const data = await resp.json();
+                const grid = document.getElementById('photo-grid');
+                grid.innerHTML = '';
+                const countEl = document.querySelector('.photo-count');
+                if (countEl) countEl.textContent = '(' + data.total + ')';
+                data.photos.forEach(photo => {
+                    const a = document.createElement('a');
+                    a.href = '/photo/' + photo.id;
+                    a.className = 'photo-card';
+                    let speciesHtml = '';
+                    if (photo.species && !['angle-check','Vision error','No bird detected'].includes(photo.species)) {
+                        speciesHtml = '<span class="species-label">' + photo.species + '</span>';
+                    }
+                    a.innerHTML = '<img src="/captures/' + photo.thumbnail + '" loading="lazy" alt="Bird">'
+                        + '<div class="photo-info">' + speciesHtml
+                        + '<span class="timestamp">' + formatTimeago(photo.timestamp) + '</span></div>';
+                    grid.appendChild(a);
+                });
+                const empty = document.querySelector('.empty-state');
+                if (empty && data.total > 0) empty.remove();
+            } catch(e) {}
+        }
+
+        async function manualCapture() {
+            const btn = document.getElementById('capture-btn');
+            const result = document.getElementById('capture-result');
+            btn.disabled = true;
+            btn.textContent = 'Capturing...';
+            result.style.display = 'none';
+            try {
+                const resp = await fetch('/api/capture', {method: 'POST'});
+                const data = await resp.json();
+                if (data.species) {
+                    result.textContent = 'Result: ' + data.species;
+                    result.style.display = 'block';
+                }
+                refreshGallery();
+            } catch(e) {
+                result.textContent = 'Capture failed';
+                result.style.display = 'block';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Capture Now';
+        }
+
+        async function checkAngle() {
+            const btn = document.getElementById('angle-btn');
+            const result = document.getElementById('angle-result');
+            btn.disabled = true;
+            btn.textContent = 'Analyzing...';
+            result.style.display = 'none';
+            try {
+                const resp = await fetch('/api/check-angle', {method: 'POST'});
+                const data = await resp.json();
+                result.textContent = data.analysis || ('Error: ' + data.error);
+                result.style.display = 'block';
+            } catch(e) {
+                result.textContent = 'Failed. Is the API key configured?';
+                result.style.display = 'block';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Check Angle';
+        }
+
+        async function loadMore() {
+            try {
+                const resp = await fetch('/api/photos?limit=' + limit + '&offset=' + offset);
+                const data = await resp.json();
+                const grid = document.getElementById('photo-grid');
+                data.photos.forEach(photo => {
+                    const a = document.createElement('a');
+                    a.href = '/photo/' + photo.id;
+                    a.className = 'photo-card';
+                    let speciesHtml = '';
+                    if (photo.species && photo.species !== 'angle-check') {
+                        speciesHtml = '<span class="species-label">' + photo.species + '</span>';
+                    }
+                    a.innerHTML = '<img src="/captures/' + photo.thumbnail + '" loading="lazy" alt="Bird">'
+                        + '<div class="photo-info">' + speciesHtml
+                        + '<span class="timestamp">' + formatTimeago(photo.timestamp) + '</span></div>';
+                    grid.appendChild(a);
+                });
+                offset += data.photos.length;
+                if (offset >= data.total) document.getElementById('load-more-btn').style.display = 'none';
+            } catch(e) {}
+        }
+
+        function formatTimeago(ts) {
+            if (!ts) return '';
+            const diff = Date.now() / 1000 - ts;
+            if (diff < 60) return Math.floor(diff) + 's ago';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
+        }
+    </script>
+</body>
+</html>

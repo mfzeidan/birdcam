@@ -1,0 +1,30 @@
+[Unit]
+Description=Birdcam Bird Feeder Camera
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=golfball
+WorkingDirectory=/home/golfball/birdcam
+ExecStart=/home/golfball/birdcam/venv/bin/python3 /home/golfball/birdcam/app.py
+Environment=PYTHONUNBUFFERED=1
+
+# Auto-restart on failure
+Restart=always
+RestartSec=10
+
+# If it crashes 5 times in 5 minutes, stop trying for 5 minutes
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Kill cleanly
+TimeoutStopSec=15
+KillSignal=SIGINT
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target

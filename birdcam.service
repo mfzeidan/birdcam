@@ -5,9 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=golfball
-WorkingDirectory=/home/golfball/birdcam
-ExecStart=/home/golfball/birdcam/venv/bin/python3 /home/golfball/birdcam/app.py
+# Change "pi" to your username
+User=pi
+WorkingDirectory=/home/pi/birdcam
+ExecStart=/home/pi/birdcam/venv/bin/python3 /home/pi/birdcam/app.py
 Environment=PYTHONUNBUFFERED=1
 
 # Auto-restart on failure

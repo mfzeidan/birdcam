@@ -6,9 +6,9 @@ are automatically deleted, so the gallery only shows confirmed bird sightings.
 
 ## Quick Access
 
-- **Web App:** http://birdcam.local:5000 (or http://192.168.50.82:5000)
+- **Web App:** http://birdcam.local:5000
 - **Live Feed:** http://birdcam.local:5000/stream
-- **SSH:** `ssh pi5` (from Mark's Mac) or `ssh golfball@birdcam.local`
+- **SSH:** `ssh <user>@birdcam.local`
 
 ## How It Works
 
@@ -96,7 +96,7 @@ Then restart: `sudo systemctl restart birdcam`
 
 The Claude API key is stored in `~/birdcam/.env`:
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=<your-key-here>
 ```
 
 ## File Structure
@@ -122,6 +122,23 @@ ANTHROPIC_API_KEY=sk-ant-...
 └── birdcam.service     # systemd service definition
 ```
 
+## Setup
+
+### Static IP (optional)
+To set a static IP on the Pi's WiFi connection:
+```bash
+sudo nmcli connection modify '<WIFI_SSID>' ipv4.method manual ipv4.addresses <IP>/24 ipv4.gateway <GATEWAY> ipv4.dns <DNS>
+sudo nmcli connection up '<WIFI_SSID>'
+```
+
+### Systemd service
+Copy the service file and enable it:
+```bash
+sudo cp ~/birdcam/birdcam.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now birdcam
+```
+
 ## Troubleshooting
 
 ### Web app not loading
@@ -145,11 +162,3 @@ the feeders — use the "Check Angle" button.
 1. Check the API key in `~/birdcam/.env`
 2. Check your Anthropic account has credits
 3. Look at logs: `sudo journalctl -u birdcam | grep Vision`
-
-### Pi IP address changed
-The Pi has a static IP set to 192.168.50.82. If the network changes, update
-it with:
-```bash
-sudo nmcli connection modify 'XPX7B' ipv4.addresses NEW_IP/24
-sudo nmcli connection up 'XPX7B'
-```

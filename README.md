@@ -6,9 +6,9 @@ are automatically deleted, so the gallery only shows confirmed bird sightings.
 
 ## Quick Access
 
-- **Web App:** http://192.168.50.82:5000
-- **Live Feed:** http://192.168.50.82:5000/stream
-- **SSH:** \`ssh pi5\` (from Mark's Mac)
+- **Web App:** http://birdcam.local:5000 (or http://192.168.50.82:5000)
+- **Live Feed:** http://birdcam.local:5000/stream
+- **SSH:** `ssh pi5` (from Mark's Mac) or `ssh golfball@birdcam.local`
 
 ## How It Works
 
@@ -19,10 +19,14 @@ are automatically deleted, so the gallery only shows confirmed bird sightings.
 5. If a bird is detected: saved to gallery with species label
 6. If no bird (wind, etc.): photo is automatically deleted
 
+**Cost control:** Claude Vision only runs during active hours (default 6:45 AM –
+6:30 PM). Outside that window, motion captures are skipped entirely so no API
+calls are made overnight.
+
 ## Common Tasks
 
 ### View the web app
-Open http://192.168.50.82:5000 in any browser on the same WiFi network.
+Open http://birdcam.local:5000 in any browser on the same WiFi network.
 
 ### Adjust motion sensitivity
 1. Open the web app
@@ -39,17 +43,17 @@ Click **Check Angle** on the web app. Claude will analyze the current view and
 suggest improvements for better bird identification.
 
 ### Restart the service
-\`\`\`bash
+```bash
 sudo systemctl restart birdcam
-\`\`\`
+```
 
 ### Check if it's running
-\`\`\`bash
+```bash
 sudo systemctl status birdcam
-\`\`\`
+```
 
 ### View logs
-\`\`\`bash
+```bash
 # Recent logs
 sudo journalctl -u birdcam -n 50 --no-pager
 
@@ -58,44 +62,46 @@ sudo journalctl -u birdcam -f
 
 # Just bird detections
 sudo journalctl -u birdcam | grep BIRD
-\`\`\`
+```
 
 ### Stop/Start the service
-\`\`\`bash
+```bash
 sudo systemctl stop birdcam
 sudo systemctl start birdcam
-\`\`\`
+```
 
 ## Configuration
 
-All settings are in \`~/birdcam/config.yaml\`. Edit with:
-\`\`\`bash
+All settings are in `~/birdcam/config.yaml`. Edit with:
+```bash
 nano ~/birdcam/config.yaml
-\`\`\`
-Then restart: \`sudo systemctl restart birdcam\`
+```
+Then restart: `sudo systemctl restart birdcam`
 
 ### Key settings
 
 | Setting | File Location | What It Does |
 |---------|--------------|--------------|
-| \`motion.adaptive_multiplier\` | config.yaml | How far above baseline motion must spike to trigger (8 = 8x) |
-| \`motion.cooldown_seconds\` | config.yaml | Min seconds between captures |
-| \`motion.mse_threshold\` | config.yaml | Absolute minimum motion level |
-| \`camera.scaler_crop\` | config.yaml | Digital zoom region \`[x, y, width, height]\` |
-| \`vision.enabled\` | config.yaml | true/false to enable Claude bird ID |
-| \`vision.model\` | config.yaml | Which Claude model to use |
-| \`storage.max_photos\` | config.yaml | Max photos before oldest are deleted |
+| `motion.adaptive_multiplier` | config.yaml | How far above baseline motion must spike to trigger (8 = 8x) |
+| `motion.cooldown_seconds` | config.yaml | Min seconds between captures |
+| `motion.mse_threshold` | config.yaml | Absolute minimum motion level |
+| `camera.scaler_crop` | config.yaml | Digital zoom region `[x, y, width, height]` |
+| `vision.enabled` | config.yaml | true/false to enable Claude bird ID |
+| `vision.model` | config.yaml | Which Claude model to use |
+| `vision.active_start` | config.yaml | Time vision turns on (default `"06:45"` = 6:45 AM) |
+| `vision.active_end` | config.yaml | Time vision turns off (default `"18:30"` = 6:30 PM) |
+| `storage.max_photos` | config.yaml | Max photos before oldest are deleted |
 
 ### API Key
 
-The Claude API key is stored in \`~/birdcam/.env\`:
-\`\`\`
+The Claude API key is stored in `~/birdcam/.env`:
+```
 ANTHROPIC_API_KEY=sk-ant-...
-\`\`\`
+```
 
 ## File Structure
 
-\`\`\`
+```
 ~/birdcam/
 ├── app.py              # Main entry point
 ├── camera.py           # Camera management (picamera2)
@@ -114,17 +120,17 @@ ANTHROPIC_API_KEY=sk-ant-...
 ├── venv/               # Python virtual environment
 ├── birdcam.log         # Application log file
 └── birdcam.service     # systemd service definition
-\`\`\`
+```
 
 ## Troubleshooting
 
 ### Web app not loading
-1. Check if service is running: \`sudo systemctl status birdcam\`
-2. Check for errors: \`sudo journalctl -u birdcam -n 20\`
-3. Restart: \`sudo systemctl restart birdcam\`
+1. Check if service is running: `sudo systemctl status birdcam`
+2. Check for errors: `sudo journalctl -u birdcam -n 20`
+3. Restart: `sudo systemctl restart birdcam`
 
 ### Camera not working
-1. Check if camera is detected: \`rpicam-hello --list-cameras\`
+1. Check if camera is detected: `rpicam-hello --list-cameras`
 2. Make sure no other process is using the camera
 3. Restart the service
 
@@ -136,14 +142,14 @@ Decrease the adaptive multiplier. Also check that the camera angle covers
 the feeders — use the "Check Angle" button.
 
 ### Claude API errors
-1. Check the API key in \`~/.birdcam/.env\`
+1. Check the API key in `~/birdcam/.env`
 2. Check your Anthropic account has credits
-3. Look at logs: \`sudo journalctl -u birdcam | grep Vision\`
+3. Look at logs: `sudo journalctl -u birdcam | grep Vision`
 
 ### Pi IP address changed
 The Pi has a static IP set to 192.168.50.82. If the network changes, update
 it with:
-\`\`\`bash
+```bash
 sudo nmcli connection modify 'XPX7B' ipv4.addresses NEW_IP/24
 sudo nmcli connection up 'XPX7B'
-\`\`\`
+```
